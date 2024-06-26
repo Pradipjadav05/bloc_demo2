@@ -19,7 +19,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   final HomeBloc homeBloc = HomeBloc();
   final CartBloc cartBloc = CartBloc();
-  WishlistBloc wishlistBloc = WishlistBloc();
+  final WishlistBloc wishlistBloc = WishlistBloc();
 
   @override
   void initState() {
@@ -29,68 +29,102 @@ class _HomeScreenState extends State<HomeScreen> {
   }
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.blueGrey,
-        title: const Text("Bloc Demo"),
-        actions: [
-          IconButton(
-            onPressed: () {
-              homeBloc.add(HomeProductWishlistButtonNavigateEvent());
-            },
-            icon: const Icon(Icons.favorite),
+    return MultiBlocProvider(
+        providers: [
+          BlocProvider<CartBloc>(
+            create: (context) => CartBloc(),
           ),
-          IconButton(
-            onPressed: () {
-              homeBloc.add(HomeProductCartButtonNavigateEvent());
-            },
-            icon: const Icon(Icons.shopping_cart_checkout),
+          BlocProvider<WishlistBloc>(
+            create: (context) => WishlistBloc(),
           ),
-        ],
-      ),
-      body: BlocConsumer<HomeBloc, HomeState>(
-        bloc: homeBloc,
-        listenWhen: (previous, current) => current is HomeActionState,
-        buildWhen: (previous, current) => current is !HomeActionState,
-        listener: (BuildContext context, Object? state) {
-          if(state is HomeNavigateToCartPageActionState){
-            Navigator.push(context, MaterialPageRoute(builder: (context) => CartScreen(cartBloc: cartBloc, wishlistBloc: wishlistBloc),));
-          }else if(state is HomeNavigateToWishlistPageActionState){
-            Navigator.push(context, MaterialPageRoute(builder: (context) => Wishlist(wishlistBloc: wishlistBloc,cartBloc: cartBloc),));
-          }else if(state is HomeProductItemCartedActionState){
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Item added to cart.")));
-          }else if(state is HomeProductItemWishListedActionState){
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Item added to wishlist.")));
-          }
-          else{}
-        },
-        builder: (BuildContext context, state) {
-          switch(state.runtimeType){
-            case HomeLoadingState:
-              return const Center(child: CircularProgressIndicator(color: Colors.blueGrey));
-            case HomeLoadedSuccessState :
-              final successState = state as HomeLoadedSuccessState;
-              return ListView.builder(
-                itemCount: successState.productDataModel.length,
-                itemBuilder: (context, index) {
-                  return ProductTileWidget(productDataModel: successState.productDataModel[index], homeBloc: homeBloc,);
-                },
-              );
-            case HomeErrorState:
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.warning, color: Colors.redAccent, size: 50),
-                    Text("Oops!", style: TextStyle(fontSize: 24, color: Colors.red)),
-                    Text("Something Went Wrong.", style: TextStyle(fontSize: 16)),
+          BlocProvider<HomeBloc>(
+            create: (context) => HomeBloc(),
+          ),
+      ],
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Colors.blueGrey,
+          title: const Text("Bloc Demo"),
+          actions: [
+            IconButton(
+              onPressed: () {
+                homeBloc.add(HomeProductWishlistButtonNavigateEvent());
+              },
+              icon: const Icon(Icons.favorite),
+            ),
+            IconButton(
+              onPressed: () {
+                homeBloc.add(HomeProductCartButtonNavigateEvent());
+              },
+              icon: const Icon(Icons.shopping_cart_checkout),
+            ),
+          ],
+        ),
+        body: BlocConsumer<HomeBloc, HomeState>(
+          bloc: homeBloc,
+          listenWhen: (previous, current) => current is HomeActionState,
+          buildWhen: (previous, current) => current is !HomeActionState,
+          listener: (BuildContext context, Object? state) {
+            if(state is HomeNavigateToCartPageActionState){
+              Navigator.push(context, MaterialPageRoute(builder: (context) => CartScreen(cartBloc: cartBloc, wishlistBloc: wishlistBloc),));
+            }else if(state is HomeNavigateToWishlistPageActionState){
+              Navigator.push(context, MaterialPageRoute(builder: (context) => Wishlist(wishlistBloc: wishlistBloc,cartBloc: cartBloc),));
+            }else if(state is HomeProductItemCartedActionState){
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Item added to cart.")));
+            }else if(state is HomeProductItemWishListedActionState){
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Item added to wishlist.")));
+            }
+            else{}
+          },
+          builder: (BuildContext context, state) {
+            switch(state.runtimeType){
+              case HomeLoadingState:
+                return const Center(child: CircularProgressIndicator(color: Colors.blueGrey));
+              case HomeLoadedSuccessState :
+                final successState = state as HomeLoadedSuccessState;
+                return MultiBlocListener(
+                  listeners: [
+                    BlocListener(
+                      bloc: cartBloc,
+                      listener: (context, state) {
+                        if(state is CartSuccessState){
+                          homeBloc.add(HomeInitialEvent());
+                        }
+                      },
+                    ),
+                    BlocListener(
+                      bloc: wishlistBloc,
+                      listener: (context, state) {
+                        if(state is WishlistSuccessState){
+                          homeBloc.add(HomeInitialEvent());
+                        }
+                      },
+                    ),
                   ],
-                ),
-              );
-            default:
-              return Container();
-          }
-        },
+
+                  child: ListView.builder(
+                    itemCount: successState.productDataModel.length,
+                    itemBuilder: (context, index) {
+                      return ProductTileWidget(productDataModel: successState.productDataModel[index], homeBloc: homeBloc,);
+                    },
+                  ),
+                );
+              case HomeErrorState:
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.warning, color: Colors.redAccent, size: 50),
+                      Text("Oops!", style: TextStyle(fontSize: 24, color: Colors.red)),
+                      Text("Something Went Wrong.", style: TextStyle(fontSize: 16)),
+                    ],
+                  ),
+                );
+              default:
+                return Container();
+            }
+          },
+        ),
       ),
     );
   }
